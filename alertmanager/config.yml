@@ -1,0 +1,9 @@
+global:
+  slack_api_url: 'WEBHOOK-URL'
+
+route:
+  receiver: 'all-alerts'
+  group_by: ['CouchDBDownAlert', datacenter, app]
+
+receivers:
+- name: 'all-alerts'

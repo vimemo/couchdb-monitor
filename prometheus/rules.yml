@@ -1,0 +1,8 @@
+groups:
+- name: couchdown
+  rules:
+  - alert: CouchDBDownAlert
+    expr: absent(couchdb_httpd_up) or couchdb_httpd_up < 1
+    for: 1m
+    annotations:
+      summary: CouchDB Node Down

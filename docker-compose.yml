@@ -1,0 +1,87 @@
+version: '3'
+
+networks:
+  medic-net:
+    driver: bridge
+
+volumes:
+    prometheus_data:
+      external: true
+    grafana_data:
+      external: true
+    couchdb_data:
+      external: true
+
+services:
+  couch:
+    image: couchdb:2.2
+    env_file: .couch-env
+    container_name: couch
+    restart: always
+    volumes:
+      - couchdb_data:/opt/couchdb/data
+    networks:
+      - medic-net
+    ports:
+      - 5980:5984
+      - 5982:5986
+
+  couchstats:
+    image: gesellix/couchdb-prometheus-exporter:latest
+    command: -couchdb.uri=http://couch:5984
+    env_file: .couch-env
+    container_name: couchstats
+    volumes:
+      - ./tmp/:/tmp
+    # - databases=medic,medic-sentinel
+    # restart: unless-stopped
+    networks:
+      - medic-net
+    ports:
+      - 9984:9984
+    depends_on:
+      - couch
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/config.yml'
+      # - '--storage.tsdb.path=/prometheus'
+      # - '--web.console.libraries=/etc/prometheus/console_libraries'
+      # - '--web.console.templates=/etc/prometheus/consoles'
+      # - '--storage.tsdb.retention=200h'
+      # - '--web.enable-lifecycle'
+    # restart: unless-stopped
+    networks:
+      - medic-net
+    ports:
+      - 9090:9090
+    depends_on:
+      - couchstats
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/datasources:/etc/grafana/datasources
+      - ./grafana/dashboards:/etc/grafana/dashboards
+      - ./grafana/setup.sh:/setup.sh
+    entrypoint: /setup.sh
+    environment:
+      - GF_SECURITY_ADMIN_USER=${ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+   # restart: unless-stopped
+    # expose:
+    #   - 3000
+    networks:
+      - medic-net
+    ports:
+      - 3000:3000
+    depends_on:
+      - prometheus
