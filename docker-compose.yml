@@ -13,22 +13,24 @@ volumes:
       external: true
 
 services:
-  couch:
+  couchdb:
     image: couchdb:2.2
     env_file: .couch-env
-    container_name: couch
+    container_name: couchdb
     restart: always
     volumes:
       - couchdb_data:/opt/couchdb/data
     networks:
       - medic-net
     ports:
-      - 5980:5984
+      - 5984
       - 5982:5986
+    # environment:
+    #   - SERVICE_PORTS=5980
 
   couchstats:
     image: gesellix/couchdb-prometheus-exporter:latest
-    command: -couchdb.uri=http://couch:5984
+    command: -couchdb.uri=http://couchdb:5984
     env_file: .couch-env
     container_name: couchstats
     volumes:
@@ -40,7 +42,17 @@ services:
     ports:
       - 9984:9984
     depends_on:
-      - couch
+      - couchdb
+
+  haproxy:
+    image: medic/haproxy:latest
+    container_name: haproxy
+    depends_on:
+      - couchdb
+    networks:
+      - medic-net
+    ports:
+      - 80
 
   prometheus:
     image: prom/prometheus:latest
